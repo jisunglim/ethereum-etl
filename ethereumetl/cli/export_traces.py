@@ -24,6 +24,7 @@
 import click
 
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 
 from ethereumetl.jobs.export_traces_job import ExportTracesJob
 from blockchainetl.logging_utils import logging_basic_config
@@ -53,11 +54,15 @@ def export_traces(start_block, end_block, batch_size, output, max_workers, provi
     if chain == 'classic' and daofork_traces == True:
         raise ValueError(
             'Classic chain does not include daofork traces. Disable daofork traces with --no-daofork-traces option.')
+
+    web3 = Web3(get_provider_from_uri(provider_uri, timeout=timeout))
+    web3.middleware_stack.inject(geth_poa_middleware, layer=0)
+    
     job = ExportTracesJob(
         start_block=start_block,
         end_block=end_block,
         batch_size=batch_size,
-        web3=ThreadLocalProxy(lambda: Web3(get_provider_from_uri(provider_uri, timeout=timeout))),
+        web3=ThreadLocalProxy(lambda: web3),
         item_exporter=traces_item_exporter(output),
         max_workers=max_workers,
         include_genesis_traces=genesis_traces,

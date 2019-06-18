@@ -1,5 +1,8 @@
 import logging
 
+from web3 import Web3
+from web3.middleware import geth_poa_middleware
+
 from blockchainetl.jobs.exporters.console_item_exporter import ConsoleItemExporter
 from blockchainetl.jobs.exporters.in_memory_item_exporter import InMemoryItemExporter
 from ethereumetl.enumeration.entity_type import EntityType
@@ -13,7 +16,6 @@ from ethereumetl.streaming.enrich import enrich_transactions, enrich_logs, enric
     enrich_contracts, enrich_tokens
 from ethereumetl.streaming.eth_item_id_calculator import EthItemIdCalculator
 from ethereumetl.thread_local_proxy import ThreadLocalProxy
-from web3 import Web3
 
 
 class EthStreamerAdapter:
@@ -35,7 +37,10 @@ class EthStreamerAdapter:
         self.item_exporter.open()
 
     def get_current_block_number(self):
-        return int(Web3(self.batch_web3_provider).eth.getBlock("latest").number)
+        web3 = Web3(self.batch_web3_provider)
+        web3.middleware_stack.inject(geth_poa_middleware, layer=0)
+
+        return int(web3.eth.getBlock("latest").number)
 
     def export_all(self, start_block, end_block):
         # Export blocks and transactions
@@ -143,11 +148,15 @@ class EthStreamerAdapter:
 
     def _export_traces(self, start_block, end_block):
         exporter = InMemoryItemExporter(item_types=['trace'])
+
+        web3 = Web3(self.batch_web3_provider)
+        web3.middleware_stack.inject(geth_poa_middleware, layer=0)
+
         job = ExportTracesJob(
             start_block=start_block,
             end_block=end_block,
             batch_size=self.batch_size,
-            web3=ThreadLocalProxy(lambda: Web3(self.batch_web3_provider)),
+            web3=ThreadLocalProxy(lambda: web3),
             max_workers=self.max_workers,
             item_exporter=exporter
         )
@@ -169,9 +178,12 @@ class EthStreamerAdapter:
 
     def _extract_tokens(self, contracts):
         exporter = InMemoryItemExporter(item_types=['token'])
+        web3 = Web3(self.batch_web3_provider)
+        web3.middleware_stack.inject(geth_poa_middleware, layer=0)
+
         job = ExtractTokensJob(
             contracts_iterable=contracts,
-            web3=ThreadLocalProxy(lambda: Web3(self.batch_web3_provider)),
+            web3=ThreadLocalProxy(lambda: web3),
             max_workers=self.max_workers,
             item_exporter=exporter
         )

@@ -24,6 +24,7 @@
 import click
 
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 
 from ethereumetl.jobs.export_token_transfers_job import ExportTokenTransfersJob
 from ethereumetl.jobs.exporters.token_transfers_item_exporter import token_transfers_item_exporter
@@ -45,11 +46,15 @@ logging_basic_config()
 @click.option('-t', '--tokens', default=None, type=str, nargs=1, help='The list of token addresses to filter by.')
 def export_token_transfers(start_block, end_block, batch_size, output, max_workers, provider_uri, tokens):
     """Exports ERC20/ERC721 transfers."""
+
+    web3 = Web3(get_provider_from_uri(provider_uri))
+    web3.middleware_stack.inject(geth_poa_middleware, layer=0)
+
     job = ExportTokenTransfersJob(
         start_block=start_block,
         end_block=end_block,
         batch_size=batch_size,
-        web3=ThreadLocalProxy(lambda: Web3(get_provider_from_uri(provider_uri))),
+        web3=ThreadLocalProxy(lambda: web3),
         item_exporter=token_transfers_item_exporter(output),
         max_workers=max_workers,
         tokens=tokens)

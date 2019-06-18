@@ -24,6 +24,7 @@
 import pytest
 from dateutil.parser import parse
 from web3 import HTTPProvider, Web3
+from web3.middleware import geth_poa_middleware
 
 from ethereumetl.service.eth_service import EthService
 from ethereumetl.service.graph_operations import OutOfBoundsError
@@ -76,4 +77,5 @@ def test_get_block_range_for_timestamps_fail(start_timestamp, end_timestamp):
 
 def get_new_eth_service():
     web3 = Web3(HTTPProvider('https://mainnet.infura.io'))
+    web3.middleware_stack.inject(geth_poa_middleware, layer=0)
     return EthService(web3)

@@ -24,7 +24,9 @@
 import click
 
 from datetime import datetime
+
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 
 from blockchainetl.file_utils import smart_open
 from blockchainetl.logging_utils import logging_basic_config
@@ -33,6 +35,8 @@ from ethereumetl.providers.auto import get_provider_from_uri
 from ethereumetl.utils import check_classic_provider_uri
 
 logging_basic_config()
+
+
 
 
 @click.command(context_settings=dict(help_option_names=['-h', '--help']))
@@ -48,6 +52,7 @@ def get_block_range_for_date(provider_uri, date, output, chain='ethereum'):
     provider_uri = check_classic_provider_uri(chain, provider_uri)
     provider = get_provider_from_uri(provider_uri)
     web3 = Web3(provider)
+    web3.middleware_stack.inject(geth_poa_middleware, layer=0)
     eth_service = EthService(web3)
 
     start_block, end_block = eth_service.get_block_range_for_date(date)

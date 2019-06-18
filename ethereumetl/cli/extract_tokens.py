@@ -32,7 +32,9 @@ from ethereumetl.jobs.extract_tokens_job import ExtractTokensJob
 from blockchainetl.logging_utils import logging_basic_config
 from ethereumetl.providers.auto import get_provider_from_uri
 from ethereumetl.thread_local_proxy import ThreadLocalProxy
+
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 
 logging_basic_config()
 
@@ -48,6 +50,9 @@ def extract_tokens(contracts, provider_uri, output, max_workers):
     """Extracts tokens from contracts file."""
 
     set_max_field_size_limit()
+    
+    web3 = Web3(get_provider_from_uri(provider_uri))
+    web3.middleware_stack.inject(geth_poa_middleware, layer=0)
 
     with smart_open(contracts, 'r') as contracts_file:
         if contracts.endswith('.json'):
@@ -56,7 +61,7 @@ def extract_tokens(contracts, provider_uri, output, max_workers):
             contracts_iterable = csv.DictReader(contracts_file)
         job = ExtractTokensJob(
             contracts_iterable=contracts_iterable,
-            web3=ThreadLocalProxy(lambda: Web3(get_provider_from_uri(provider_uri))),
+            web3=ThreadLocalProxy(lambda: web3),
             max_workers=max_workers,
             item_exporter=tokens_item_exporter(output))
 

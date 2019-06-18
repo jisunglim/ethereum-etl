@@ -23,6 +23,7 @@
 import pytest
 
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 
 import tests.resources
 from ethereumetl.jobs.export_traces_job import ExportTracesJob
@@ -48,11 +49,12 @@ def read_resource(resource_group, file_name):
 def test_export_traces_job(tmpdir, start_block, end_block, resource_group, web3_provider_type):
     traces_output_file = str(tmpdir.join('actual_traces.csv'))
 
+    web3 = Web3(get_web3_provider(web3_provider_type, lambda file: read_resource(resource_group, file)))
+    web3.middleware_stack.inject(geth_poa_middleware, layer=0)
+
     job = ExportTracesJob(
         start_block=start_block, end_block=end_block, batch_size=1,
-        web3=ThreadLocalProxy(
-            lambda: Web3(get_web3_provider(web3_provider_type, lambda file: read_resource(resource_group, file)))
-        ),
+        web3=ThreadLocalProxy(lambda: web3),
         max_workers=5,
         item_exporter=traces_item_exporter(traces_output_file),
     )

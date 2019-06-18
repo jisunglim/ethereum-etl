@@ -24,6 +24,7 @@
 import click
 
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 
 from blockchainetl.file_utils import smart_open
 from ethereumetl.jobs.export_tokens_job import ExportTokensJob
@@ -48,10 +49,13 @@ logging_basic_config()
 def export_tokens(token_addresses, output, max_workers, provider_uri, chain='ethereum'):
     """Exports ERC20/ERC721 tokens."""
     provider_uri = check_classic_provider_uri(chain, provider_uri)
+    web3 = Web3(get_provider_from_uri(provider_uri))
+    web3.middleware_stack.inject(geth_poa_middleware, layer=0)
+
     with smart_open(token_addresses, 'r') as token_addresses_file:
         job = ExportTokensJob(
             token_addresses_iterable=(token_address.strip() for token_address in token_addresses_file),
-            web3=ThreadLocalProxy(lambda: Web3(get_provider_from_uri(provider_uri))),
+            web3=ThreadLocalProxy(lambda: web3),
             item_exporter=tokens_item_exporter(output),
             max_workers=max_workers)
 
